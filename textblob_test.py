@@ -1,18 +1,20 @@
 import pandas as pd
+import re
 from textblob import TextBlob
 
 
-tweets_df = pd.read_csv("FinalBalancedDataset.csv")
-
+tweets_analysis_df = pd.read_csv('cleaned_tweets_df.csv')
 #print(tweets_df.head(10))
 
-tweets_df.dropna(inplace=True)
-tweets_df = tweets_df[['Toxicity', 'tweet']] 
 
 def textblob_analysis(text):
     blob = TextBlob(str(text))
     polarity = blob.sentiment.polarity
-    return 'Toxic' if polarity < -0.1 else 'Non-toxic'
+    subjectivity = blob.sentiment.subjectivity
+    if polarity < 0 and subjectivity > 0.5:
+        return '1'
+    else: 
+        return '0'
 
 
 # note: polarity meseaures the sentiment of the text
@@ -20,4 +22,7 @@ def textblob_analysis(text):
 #1.0 very positive polarity (sentiment)
 #-1.0 very negative polarity (sentiment)
 
-print(textblob_analysis("I am beautiful!"))
+# print(tweets_df.tail(10))
+
+tweets_analysis_df['textblob_pred'] = tweets_analysis_df['cleaned_tweet'].apply(textblob_analysis)
+print(tweets_analysis_df)
