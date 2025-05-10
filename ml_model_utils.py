@@ -6,7 +6,7 @@ def train_ml_model(X, y):
     vectorizer = TfidfVectorizer(max_features=5000)
     X_vec = vectorizer.fit_transform(X)
 
-    model = LogisticRegression(max_iter=1000)
+    model = LogisticRegression(max_iter=1000, solver='lbfgs')
     model.fit(X_vec, y)
 
     return model, vectorizer
