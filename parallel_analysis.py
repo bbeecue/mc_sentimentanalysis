@@ -3,12 +3,37 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+import random
+import string
+from tqdm import tqdm
 from textblob import TextBlob
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 from ml_model_utils import train_ml_model
 from collections import Counter
 import multiprocessing as mp
+
+def add_random_noise(text, noise_level=0.05):
+    words = text.split()
+    n_inserts = max(1, int(len(words) * noise_level))
+    for _ in range(n_inserts):
+        rand_word = ''.join(random.choices(string.ascii_lowercase, k=random.randint(3,7)))
+        insert_pos = random.randint(0, len(words))
+        words.insert(insert_pos, rand_word)
+    return ' '.join(words)
+
+def random_char_swap(text, alteration_level=0.02):
+    chars = list(text)
+    n_swaps = max(1, int(len(chars) * alteration_level))
+    for _ in range(n_swaps):
+        idx1, idx2 = random.sample(range(len(chars)), 2)
+        chars[idx1], chars[idx2] = chars[idx2], chars[idx1]
+    return ''.join(chars)
+
+def apply_random_alterations(text):
+    text = add_random_noise(text)
+    text = random_char_swap(text)
+    return text
 
 def bipolar_sigmoid(x):
     return (2 / (1 + np.exp(-x))) - 1
@@ -70,11 +95,14 @@ def run_single_simulation(run_idx, df):
         df['text'], df['sentiment'], test_size=0.2, random_state=None
     )
 
-    model, vectorizer = train_ml_model(X_train, y_train)
-
-    ml_preds = ml_based_analysis(X_test, model, vectorizer)
-    rule_preds = X_test.apply(rule_based_analysis)
-    hybrid_preds = X_test.apply(lambda x: hybrid_sentiment_score(x, model, vectorizer))
+    X_train_noisy = X_train.apply(apply_random_alterations)
+    X_test_noisy = X_test.apply(apply_random_alterations)
+    
+    model, vectorizer = train_ml_model(X_train_noisy, y_train)
+    
+    ml_preds = ml_based_analysis(X_test_noisy, model, vectorizer)
+    rule_preds = X_test_noisy.apply(rule_based_analysis)
+    hybrid_preds = X_test_noisy.apply(lambda x: hybrid_sentiment_score(x, model, vectorizer))
 
     result = {
         'run': run_idx + 1,
@@ -96,21 +124,20 @@ def run_single_simulation(run_idx, df):
 
     return result, preds
 
-
+def run_single_simulation_wrapper(args):
+    return run_single_simulation(*args)
 
 def monte_carlo_simulation_parallel(df, n_runs):
     results = []
     all_preds = []
 
-
     num_cores = 2
     print(f"Using {num_cores} CPU cores for parallel processing...")
 
-    with mp.Pool(processes=num_cores) as pool:
-       
-        tasks = [(i, df) for i in range(n_runs)]
+    tasks = [(i, df) for i in range(n_runs)]
 
-        for result, preds in pool.starmap(run_single_simulation, tasks):
+    with mp.Pool(processes=num_cores) as pool:
+        for result, preds in tqdm(pool.imap_unordered(run_single_simulation_wrapper, tasks), total=n_runs, desc="Monte Carlo Simulations"):
             results.append(result)
             all_preds.append(preds)
 
@@ -153,7 +180,7 @@ if __name__ == "__main__":
     plt.ylim(0, 1)
     plt.show()
 
-    # Confusion Matrices (best run)
+    # confusion Matrices (best run)
     best_run_idx = results_df['hybrid_accuracy'].idxmax()
     best_preds = all_preds[best_run_idx]
 

@@ -5,6 +5,7 @@ import numpy as np
 import time
 import random
 import string
+from tqdm import tqdm
 from textblob import TextBlob
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
@@ -95,9 +96,7 @@ def monte_carlo_simulation(df, n_runs):
     results = []
     all_preds = []
     
-    for run in range(n_runs):
-        print(f"Run {run+1}/{n_runs}")
-        
+    for run in tqdm(range(n_runs), desc="Monte Carlo Simulation"):
         # random split for train and test set
         X_train, X_test, y_train, y_test = train_test_split(
             df['text'], df['sentiment'], test_size=0.2, random_state=None  # random split each time
@@ -117,10 +116,9 @@ def monte_carlo_simulation(df, n_runs):
 
         # metrics
         result = {
-            # macro handles 3 classes equally
             'run': run + 1,
             'ml_accuracy': accuracy_score(y_test, ml_preds),
-            'ml_f1': f1_score(y_test, ml_preds, average='macro'), #https://sklearn-evaluation.ploomber.io/en/latest/classification/micro_macro.html
+            'ml_f1': f1_score(y_test, ml_preds, average='macro'),
             'rule_accuracy': accuracy_score(y_test, rule_preds),
             'rule_f1': f1_score(y_test, rule_preds, average='macro'),
             'hybrid_accuracy': accuracy_score(y_test, hybrid_preds),
@@ -138,6 +136,7 @@ def monte_carlo_simulation(df, n_runs):
         })
 
     return pd.DataFrame(results), all_preds
+
 
         
         
