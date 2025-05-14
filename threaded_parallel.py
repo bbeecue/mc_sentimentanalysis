@@ -13,7 +13,7 @@ from ml_model_utils import train_ml_model
 from collections import Counter
 import threading
 
-def add_random_noise(text, noise_level=0.05):
+def add_noise(text, noise_level=0.05):
     words = text.split()
     n_inserts = max(1, int(len(words) * noise_level))
     for _ in range(n_inserts):
@@ -22,7 +22,7 @@ def add_random_noise(text, noise_level=0.05):
         words.insert(insert_pos, rand_word)
     return ' '.join(words)
 
-def random_char_swap(text, alteration_level=0.02):
+def char_swap(text, alteration_level=0.02):
     chars = list(text)
     n_swaps = max(1, int(len(chars) * alteration_level))
     for _ in range(n_swaps):
@@ -30,10 +30,16 @@ def random_char_swap(text, alteration_level=0.02):
         chars[idx1], chars[idx2] = chars[idx2], chars[idx1]
     return ''.join(chars)
 
-def apply_random_alterations(text):
-    text = add_random_noise(text)
-    text = random_char_swap(text)
+def apply_alterations(text):
+    text = add_noise(text)
+    text = char_swap(text)
     return text
+
+def apply_random(series, fraction=0.4):
+    noisy_series = series.copy()
+    noisy_indices = np.random.choice(series.index, size=int(len(series)*fraction), replace=False)
+    noisy_series.loc[noisy_indices] = series.loc[noisy_indices].apply(apply_alterations)
+    return noisy_series
 
 def bipolar_sigmoid(x):
     return (2 / (1 + np.exp(-x))) - 1
@@ -95,8 +101,8 @@ def run_single_simulation(run_idx, df):
         df['text'], df['sentiment'], test_size=0.2, random_state=None
     )
 
-    X_train_noisy = X_train.apply(apply_random_alterations)
-    X_test_noisy = X_test.apply(apply_random_alterations)
+    X_train_noisy = apply_random(X_train, fraction=0.4)
+    X_test_noisy = apply_random(X_test, fraction=0.4)
     
     model, vectorizer = train_ml_model(X_train_noisy, y_train)
     
