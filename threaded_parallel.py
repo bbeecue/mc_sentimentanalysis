@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
 from ml_model_utils import train_ml_model
 from collections import Counter
-import multiprocessing as mp
+import threading
 
 def add_random_noise(text, noise_level=0.05):
     words = text.split()
@@ -124,27 +124,38 @@ def run_single_simulation(run_idx, df):
 
     return result, preds
 
-def run_single_simulation_wrapper(args):
-    return run_single_simulation(*args)
 
 def monte_carlo_simulation_parallel(df, n_runs):
     results = []
     all_preds = []
 
-    num_cores = 2
-    print(f"Using {num_cores} CPU cores for parallel processing...")
+    lock = threading.Lock()
+    threads = []
     
     sampled_df = df.sample(n=5000, random_state=None)
+    
+    pbar = tqdm(total=n_runs, desc="Monte Carlo Simulations (Threading)", position=0)
 
-    tasks = [(i, sampled_df) for i in range(n_runs)]
-
-    with mp.Pool(processes=num_cores) as pool:
-        for result, preds in tqdm(pool.imap_unordered(run_single_simulation_wrapper, tasks), total=n_runs, desc="Monte Carlo Simulations"):
+    def thread_worker(run_idx):
+        result, preds = run_single_simulation(run_idx, sampled_df)
+        with lock:
             results.append(result)
             all_preds.append(preds)
+            pbar.update(1)
+            
+    print(f"Using {threading.active_count()} threads for parallel processing...")
 
+    for i in range(n_runs):
+        t = threading.Thread(target=thread_worker, args=(i,))
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
+
+    pbar.close()
+    
     return pd.DataFrame(results), all_preds
-
 
 if __name__ == "__main__":
     df = pd.read_csv('preprocessed_tweets_df.csv')
@@ -166,7 +177,7 @@ if __name__ == "__main__":
     
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#1f77b4','#ff7f0e','#2ca02c']  
 
-    mean_scores.plot(color=colors, kind='bar', figsize=(10,6), title='Average Performance (Parallel Version)')
+    mean_scores.plot(kind='bar', figsize=(10,6), title='Average Performance (Threads Version)', color=colors)
     plt.ylabel('Score')
     plt.xticks(rotation=45)
     plt.ylim(0, 1)
@@ -174,13 +185,13 @@ if __name__ == "__main__":
     plt.show()
 
     sns.boxplot(data=results_df[['ml_accuracy', 'rule_accuracy', 'hybrid_accuracy']])
-    plt.title('Accuracy Distribution (Parallel Version)')
+    plt.title('Accuracy Distribution (Threads Version)')
     plt.ylabel('Accuracy')
     plt.ylim(0, 1)
     plt.show()
 
     sns.boxplot(data=results_df[['ml_f1', 'rule_f1', 'hybrid_f1']])
-    plt.title('F1 Score Distribution (Parallel Version)')
+    plt.title('F1 Score Distribution (Threads Version)')
     plt.ylabel('F1 Score')
     plt.ylim(0, 1)
     plt.show()

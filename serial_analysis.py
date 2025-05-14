@@ -68,7 +68,7 @@ def rule_based_analysis(text):
     # rule-based sentiment analysis using TextBlob library
     blob = TextBlob(str(text))
     polarity = blob.sentiment.polarity
-    subjectivity = blob.sentiment.subjectivity
+   #subjectivity = blob.sentiment.subjectivity
     if polarity < 0:
         return "negative"  
     elif polarity == 0: 
@@ -96,10 +96,12 @@ def monte_carlo_simulation(df, n_runs):
     results = []
     all_preds = []
     
+    sampled_df = df.sample(n=10000, random_state=None)
+    
     for run in tqdm(range(n_runs), desc="Monte Carlo Simulation"):
         # random split for train and test set
         X_train, X_test, y_train, y_test = train_test_split(
-            df['text'], df['sentiment'], test_size=0.2, random_state=None  # random split each time
+            sampled_df['text'], sampled_df['sentiment'], test_size=0.2, random_state=None  # random split each time
         )
         
         X_train_noisy = X_train.apply(apply_random_alterations)
@@ -145,7 +147,7 @@ df = pd.read_csv('preprocessed_tweets_df.csv')
 
 start_time = time.perf_counter() # this part times how long the serial version runs (for 100 repeated mc simulations)
 # apply monte carlo runs to the tweets dataframe
-results_df, all_preds = monte_carlo_simulation(df, n_runs=1000)
+results_df, all_preds = monte_carlo_simulation(df, n_runs=500)
 end_time = time.perf_counter()
 
 # ----------------visualization of data---------------------------------
@@ -153,7 +155,9 @@ end_time = time.perf_counter()
 mean_scores = results_df[['ml_accuracy', 'rule_accuracy', 'hybrid_accuracy',
                           'ml_f1', 'rule_f1', 'hybrid_f1']].mean()
 
-mean_scores.plot(kind='bar', figsize=(10,6), title='Average Performance (Serial Version)')
+colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#1f77b4','#ff7f0e','#2ca02c']  
+
+mean_scores.plot(color=colors, kind='bar', figsize=(10,6), title='Average Performance (Serial Version)', )
 plt.ylabel('Score')
 plt.xticks(rotation=45)
 plt.ylim(0, 1)
