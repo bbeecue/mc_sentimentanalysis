@@ -12,6 +12,7 @@ from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, Confusio
 from ml_model_utils import train_ml_model
 from collections import Counter
 import multiprocessing as mp
+import concurrent.futures
 
 def add_noise(text, noise_level=0.05):
     words = text.split()
@@ -144,8 +145,10 @@ def monte_carlo_simulation_parallel(df, n_runs):
 
     tasks = [(i, sampled_df) for i in range(n_runs)]
 
-    with mp.Pool(processes=num_cores) as pool:
-        for result, preds in tqdm(pool.imap_unordered(run_single_simulation_wrapper, tasks), total=n_runs, desc="Monte Carlo Simulations"):
+    with concurrent.futures.ProcessPoolExecutor(max_workers=num_cores) as executor:
+        futures = [executor.submit(run_single_simulation_wrapper, task) for task in tasks]
+        for future in tqdm(concurrent.futures.as_completed(futures), total=n_runs, desc="Monte Carlo Simulations"):
+            result, preds = future.result()
             results.append(result)
             all_preds.append(preds)
 

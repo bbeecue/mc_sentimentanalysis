@@ -138,20 +138,23 @@ def monte_carlo_simulation_parallel(df, n_runs):
     lock = threading.Lock()
     threads = []
     
-    sampled_df = df.sample(n=5000, random_state=None)
-    
-    pbar = tqdm(total=n_runs, desc="Monte Carlo Simulations (Threading)", position=0)
+    setup_pbar = tqdm(total=1, desc="Sampling Dataset", position=0)
+    sampled_df = df.sample(n=10000, random_state=None)
+    setup_pbar.update(1)
+    setup_pbar.close()
 
+    sim_pbar = tqdm(total=n_runs, desc="Monte Carlo Simulations (Threading)", position=1)
     def thread_worker(run_idx):
         result, preds = run_single_simulation(run_idx, sampled_df)
         with lock:
             results.append(result)
             all_preds.append(preds)
-            pbar.update(1)
+            sim_pbar.update(1)
             
-    print(f"Using {threading.active_count()} threads for parallel processing...")
+    print(f"\nUsing {threading.active_count()} threads for parallel processing...")
 
     for i in range(n_runs):
+        print("run check")
         t = threading.Thread(target=thread_worker, args=(i,))
         threads.append(t)
         t.start()
@@ -159,7 +162,7 @@ def monte_carlo_simulation_parallel(df, n_runs):
     for t in threads:
         t.join()
 
-    pbar.close()
+    sim_pbar.close()
     
     return pd.DataFrame(results), all_preds
 
